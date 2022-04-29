@@ -1,12 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Spyder Editor
-
-This is a temporary script file.
-streamlit run ~/Downloads/Legofy.py
-"""
-
-
 
 import streamlit as st
 from PIL import Image
@@ -16,7 +8,6 @@ import requests
 import imghdr
 
 st.title("Legofy your favourite photo")
-
 
 
 upload_option = st.radio(  "Source of file is coming from"  ,("File Upload", "URL" ))
@@ -39,12 +30,3 @@ elif upload_option == "URL":
           uploaded_ar = asarray(uploaded_im)
           st.write("Width: " + str(im_size[0]) + '; Height: ' + str(im_size[1]))
           st.image(filename)
-
-
-
-
-
-
-
-
-
