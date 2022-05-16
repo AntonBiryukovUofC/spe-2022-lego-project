@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import streamlit as st
-from PIL import Image
+from PIL import Image,  ImageEnhance
 import requests
 from numpy import asarray
 from urllib import request
@@ -25,57 +25,75 @@ if upload_option == "File Upload":
 elif upload_option == "URL":
      url = st.text_input("Paste the URL of your image",value='https://vetstreet.brightspotcdn.com/dims4/default/e0b07c7/2147483647/thumbnail/645x380/quality/90/?url=https%3A%2F%2Fvetstreet-brightspot.s3.amazonaws.com%2F0b%2F6beb80a81011e0a0d50050568d634f%2Ffile%2FWhippet-1-645mk062911.jpg')
      if url is not None and url != '':
-          #filename = url.split('/')[-1]
-          #request.urlretrieve(url, filename)
-          #uploaded_im = Image.open(filename)
           response = requests.get(url)
           uploaded_im =  Image.open(requests.get(url, stream=True).raw)
-          im_size = uploaded_im.size
-          uploaded_ar = asarray(uploaded_im)
-
-st.write("Width: " + str(im_size[0]) + '; Height: ' + str(im_size[1]))
-st.write(uploaded_ar.shape)
-uploaded_grey=color.rgb2gray(uploaded_ar)
-compactness = st.slider("Compactness",0,100,30)
-n_segments = st.slider("Number of segments",1,500,10)
-labels = seg.slic(uploaded_ar, compactness=compactness, n_segments=n_segments, start_label=1)
-out_overlay = color.label2rgb(labels, uploaded_ar, kind='overlay')
-out_avg = color.label2rgb(labels, uploaded_ar, kind='avg', bg_label=0)
-g = graph.rag_mean_color(uploaded_ar, labels)
-
-labels_graph_cutoff = graph.cut_threshold(labels, g, 18)
-out_rag = color.label2rgb(labels_graph_cutoff, uploaded_ar, kind='avg', bg_label=0)
 
 
+if upload_option == "File Upload" and uploaded_file is not None or upload_option == "URL" and url is not None and url != '':
+     im_size = uploaded_im.size
+     uploaded_ar = asarray(uploaded_im)
+     st.write("Width: " + str(im_size[0]) + '; Height: ' + str(im_size[1]))
+     # Slider bars of image enhancement and superpixel adjustments
+     col1, col2 = st.columns(2)
+     col1.subheader("Adjust Image Enhancements")
+     brightness = col1.slider("Brightness", min_value=0.0, max_value=2.0, value=1.0, step=0.2)
+     contrast = col1.slider("Contrast", min_value=0.0, max_value=2.0, value=1.0, step=0.2)
+     sharpness = col1.slider("Sharpness", min_value=0.0, max_value=2.0, value=1.0, step=0.2)
+     col2.subheader("Adjust Image Segmentation")
+     compactness = col2.slider("Compactness", min_value=-2.0, max_value=2.0, value=1.0, step=0.1)
+     n_segments = col2.slider("Number of segments", min_value=100, max_value=800, value=250, step=5)
+     threshold = col2.slider("Threshold", 1, 40, 10)
 
-fig = plt.figure()
-fig.set_figheight(10)
-fig.set_figwidth(10)
-ax1 = plt.subplot2grid(shape=(3, 3), loc=(0, 0), colspan=2, rowspan=2)
-ax2 = plt.subplot2grid(shape=(3, 3), loc=(2, 0))
-ax3 = plt.subplot2grid(shape=(3, 3), loc=(2, 1))
-ax4 = plt.subplot2grid(shape=(3, 3), loc=(0, 2))
-ax5 = plt.subplot2grid(shape=(3, 3), loc=(1, 2))
-ax6 = plt.subplot2grid(shape=(3, 3), loc=(2, 2))
+     # Apply image enhancement
+     enhancer_br = ImageEnhance.Brightness(uploaded_im)
+     adjusted_br = enhancer_br.enhance(brightness)
+     enhancer_contr= ImageEnhance.Contrast(adjusted_br)
+     adjusted_br_contr = enhancer_contr.enhance(contrast)
+     enhancer_shar = ImageEnhance.Sharpness(adjusted_br_contr)
+     adjusted_br_contr_shar = enhancer_shar.enhance(sharpness)
+     adjusted_ar = asarray(adjusted_br_contr_shar)
 
+     # Apply image segementation to the original image and enhanced image
+     labels_origin= seg.slic(uploaded_ar, compactness=10**compactness, n_segments=n_segments, start_label=1)
+     out_avg_origin = color.label2rgb(labels_origin, uploaded_ar, kind='avg', bg_label=0)
+     g_origin = graph.rag_mean_color(uploaded_ar, labels_origin)
+     labels_graph_cutoff_origin = graph.cut_threshold(labels_origin, g_origin,  thresh=threshold)
+     out_rag_origin = color.label2rgb(labels_graph_cutoff_origin, uploaded_ar, kind='avg', bg_label=0)
 
-ax1.imshow(uploaded_ar)
-ax1.axis('off')
-ax1.set_title('Original Image')
-ax2.imshow(labels)
-ax2.axis('off')
-ax2.set_title('segmentation.slic')
-ax3.imshow(out_overlay)
-ax3.axis('off')
-ax3.set_title('color.label2rgb: overlay')
-ax4.imshow(out_avg)
-ax4.axis('off')
-ax4.set_title('color.label2rgb: average')
-ax5.imshow(out_rag)
-ax5.axis('off')
-ax5.set_title('graph.rag_mean_color: average ')
-ax6.imshow(uploaded_ar)
-ax6.axis('off')
-ax6.set_title(' ')
+     labels_adjust = seg.slic(adjusted_ar, compactness=10 ** compactness, n_segments=n_segments, start_label=1)
+     out_avg_adjust = color.label2rgb(labels_adjust, adjusted_ar, kind='avg', bg_label=0)
+     g_adjust = graph.rag_mean_color(adjusted_ar, labels_adjust)
+     labels_graph_cutoff_adjust = graph.cut_threshold(labels_adjust, g_adjust, thresh=threshold)
+     out_rag_adjust = color.label2rgb(labels_graph_cutoff_adjust, adjusted_ar, kind='avg', bg_label=0)
 
-st.pyplot(fig)
+     # Generate and display images
+     fig = plt.figure()
+     fig.set_figheight(10)
+     fig.set_figwidth(10)
+     ax1 = plt.subplot2grid(shape=(3, 3), loc=(0, 0), colspan=2, rowspan=2)
+     ax2 = plt.subplot2grid(shape=(3, 3), loc=(2, 0))
+     ax3 = plt.subplot2grid(shape=(3, 3), loc=(2, 1))
+     ax4 = plt.subplot2grid(shape=(3, 3), loc=(0, 2))
+     ax5 = plt.subplot2grid(shape=(3, 3), loc=(1, 2))
+     ax6 = plt.subplot2grid(shape=(3, 3), loc=(2, 2))
+
+     ax1.imshow(adjusted_ar)
+     ax1.axis('off')
+     ax1.set_title('Enhanced Image')
+     ax2.imshow(out_avg_adjust)
+     ax2.axis('off')
+     ax2.set_title('Segmented Enhanced Image')
+     ax3.imshow(out_rag_adjust)
+     ax3.axis('off')
+     ax3.set_title('Merged Enhanced Image')
+     ax4.imshow(out_avg_origin)
+     ax4.axis('off')
+     ax4.set_title('Segmented Original Image')
+     ax5.imshow(out_rag_origin)
+     ax5.axis('off')
+     ax5.set_title('Merged Original Image')
+     ax6.imshow(uploaded_ar)
+     ax6.axis('off')
+     ax6.set_title('Original Image')
+
+     st.pyplot(fig)
