@@ -4,11 +4,31 @@ import streamlit as st
 from PIL import Image,  ImageEnhance
 import requests
 from numpy import asarray
+from numpy import random
 from urllib import request
 import matplotlib.pyplot as plt
 from skimage import data,  color
 import skimage.segmentation as seg
 from skimage.future import graph
+
+
+def image_generator(image, brightness, contrast, sharpness, compactness, n_segments, threshold):
+     # Apply image enhancement
+     enhancer_br = ImageEnhance.Brightness(image)
+     adjusted_br = enhancer_br.enhance(brightness)
+     enhancer_contr = ImageEnhance.Contrast(adjusted_br)
+     adjusted_br_contr = enhancer_contr.enhance(contrast)
+     enhancer_shar = ImageEnhance.Sharpness(adjusted_br_contr)
+     adjusted_br_contr_shar = enhancer_shar.enhance(sharpness)
+     adjusted_ar = asarray(adjusted_br_contr_shar)
+
+     # Apply image segementation to the enhanced image
+     labels_adjust = seg.slic(adjusted_ar, compactness=10**compactness, n_segments=n_segments, start_label=1)
+     g_adjust = graph.rag_mean_color(adjusted_ar, labels_adjust)
+     labels_graph_cutoff_adjust = graph.cut_threshold(labels_adjust, g_adjust, thresh=threshold)
+     out_rag_adjust = color.label2rgb(labels_graph_cutoff_adjust, adjusted_ar, kind='avg', bg_label=0)
+     return out_rag_adjust
+
 
 st.title("Legofy your favourite photo")
 
@@ -53,6 +73,7 @@ if upload_option == "File Upload" and uploaded_file is not None or upload_option
      adjusted_br_contr_shar = enhancer_shar.enhance(sharpness)
      adjusted_ar = asarray(adjusted_br_contr_shar)
 
+
      # Apply image segementation to the original image and enhanced image
      labels_origin= seg.slic(uploaded_ar, compactness=10**compactness, n_segments=n_segments, start_label=1)
      out_avg_origin = color.label2rgb(labels_origin, uploaded_ar, kind='avg', bg_label=0)
@@ -65,6 +86,29 @@ if upload_option == "File Upload" and uploaded_file is not None or upload_option
      g_adjust = graph.rag_mean_color(adjusted_ar, labels_adjust)
      labels_graph_cutoff_adjust = graph.cut_threshold(labels_adjust, g_adjust, thresh=threshold)
      out_rag_adjust = color.label2rgb(labels_graph_cutoff_adjust, adjusted_ar, kind='avg', bg_label=0)
+
+     # Generate Random parameters
+     random_nums_brightness = random.normal(loc=0.0, scale=0.4, size=3)
+     random_nums_contrast = random.normal(loc=0.0, scale=0.4, size=3)
+     random_nums_sharpness = random.normal(loc=0.0, scale=0.4, size=3)
+     random_nums_compactness = random.normal(loc=0.0, scale=0.8, size=3)
+     random_nums_threshold = random.normal(loc=0, scale=8, size=3)
+
+     # Generate image with random parameters
+     new_images = []
+     for i in range(len(random_nums_contrast)):
+
+         new_img = image_generator(image=uploaded_im, brightness=brightness+random_nums_brightness[i],
+                                   contrast=contrast+random_nums_contrast[i],
+                                   sharpness=sharpness+random_nums_sharpness[i],
+                                   compactness=compactness+random_nums_compactness,
+                                   n_segments=n_segments,
+                                   threshold=threshold+random_nums_threshold[i],)
+         new_images.append(new_img)
+
+
+
+
 
      # Generate and display images
      fig = plt.figure()
@@ -80,18 +124,18 @@ if upload_option == "File Upload" and uploaded_file is not None or upload_option
      ax1.imshow(adjusted_ar)
      ax1.axis('off')
      ax1.set_title('Enhanced Image')
-     ax2.imshow(out_avg_adjust)
+     ax2.imshow(new_images[1])
      ax2.axis('off')
-     ax2.set_title('Segmented Enhanced Image')
-     ax3.imshow(out_rag_adjust)
+     ax2.set_title('REM 2')
+     ax3.imshow(new_images[2])
      ax3.axis('off')
-     ax3.set_title('Merged Enhanced Image')
-     ax4.imshow(out_avg_origin)
+     ax3.set_title('REM 3')
+     ax4.imshow(out_rag_adjust)
      ax4.axis('off')
-     ax4.set_title('Segmented Original Image')
-     ax5.imshow(out_rag_origin)
+     ax4.set_title('Merged Enhanced Image')
+     ax5.imshow(new_images[0])
      ax5.axis('off')
-     ax5.set_title('Merged Original Image')
+     ax5.set_title('REM 1')
      ax6.imshow(uploaded_ar)
      ax6.axis('off')
      ax6.set_title('Original Image')
