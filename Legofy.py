@@ -3,13 +3,15 @@
 import streamlit as st
 from PIL import Image,  ImageEnhance
 import requests
-from numpy import asarray
-from numpy import random
-from urllib import request
+import pandas as pd
+from numpy import asarray, uint8, random
 import matplotlib.pyplot as plt
+from matplotlib import cm
 from skimage import data,  color
 import skimage.segmentation as seg
 from skimage.future import graph
+import json
+import subprocess
 
 
 def image_generator(image, brightness, contrast, sharpness, compactness, n_segments, threshold):
@@ -87,6 +89,8 @@ if upload_option == "File Upload" and uploaded_file is not None or upload_option
      labels_graph_cutoff_adjust = graph.cut_threshold(labels_adjust, g_adjust, thresh=threshold)
      out_rag_adjust = color.label2rgb(labels_graph_cutoff_adjust, adjusted_ar, kind='avg', bg_label=0)
 
+
+
      # Generate Random parameters
      random_nums_brightness = random.normal(loc=0.0, scale=0.4, size=3)
      random_nums_contrast = random.normal(loc=0.0, scale=0.4, size=3)
@@ -121,23 +125,58 @@ if upload_option == "File Upload" and uploaded_file is not None or upload_option
      ax5 = plt.subplot2grid(shape=(3, 3), loc=(1, 2))
      ax6 = plt.subplot2grid(shape=(3, 3), loc=(2, 2))
 
-     ax1.imshow(adjusted_ar)
+     ax1.imshow(out_rag_adjust)
      ax1.axis('off')
-     ax1.set_title('Enhanced Image')
-     ax2.imshow(new_images[1])
+     ax1.set_title('Merged Enhanced Image')
+     ax2.imshow(new_images[0])
      ax2.axis('off')
-     ax2.set_title('REM 2')
-     ax3.imshow(new_images[2])
+     ax2.set_title('REM 1')
+     ax3.imshow(new_images[1])
      ax3.axis('off')
-     ax3.set_title('REM 3')
-     ax4.imshow(out_rag_adjust)
+     ax3.set_title('REM 2')
+     ax4.imshow(adjusted_ar)
      ax4.axis('off')
-     ax4.set_title('Merged Enhanced Image')
-     ax5.imshow(new_images[0])
+     ax4.set_title('Enhanced Image')
+     ax5.imshow(uploaded_ar)
      ax5.axis('off')
-     ax5.set_title('REM 1')
-     ax6.imshow(uploaded_ar)
+     ax5.set_title('Original Image')
+     ax6.imshow(new_images[2])
      ax6.axis('off')
-     ax6.set_title('Original Image')
+     ax6.set_title('REM 3')
 
      st.pyplot(fig)
+
+
+
+
+     # Prepare for R-Brickr: Save Merged Enhanced Image, save parameters for brickr
+     im = Image.fromarray(out_rag_adjust)
+     im.save("MEI.png")
+
+     params = {'data_path': 'path/to/image.png',
+               'img_size': (64,out_rag_adjust.shape[0]*64//out_rag_adjust.shape[1]),
+               'color_palette': ['universal', "generic", "special"],
+               'method': 'cie94',
+               'use_bricks': ['6x4', '6x2', '4x2', '3x2', '2x2', '4x1','3x1', '2x1', '1x1']}
+     with open('params.json', 'w') as f:
+          json.dump(params, f)
+
+     # running R code
+     subprocess.run(["Rscript", "RCode_brickr.R"])
+
+     # Load mosaic image from disk and display
+     mosaic_im = Image.open('MEI_Mosaic.png')
+     # Load table of lego pieces
+     pieces = pd.read_csv('MEI_pieces.csv')
+
+     # Display 1.legofied image 2. lego pieces in column
+     col1, col2 = st.columns(2)
+     with col1:
+          st.subheader('Your Legofied Image')
+          st.image(mosaic_im, caption='Mosaic Image')
+
+     with col2:
+          st.subheader('The Lego Pieces You  Need')
+          st.dataframe(pieces, height=500)
+          #st.table(pieces)
+
